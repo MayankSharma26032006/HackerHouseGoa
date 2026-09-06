@@ -29,3 +29,9 @@ face_id/embeddings/*.json
 
 # ── Phase 2: generated search results (not tracked) ───────
 web_search/results/*.json
+
+# Phase 3: generated fingerprints (not tracked)
+chain/fingerprints/*.json
+
+# Phase 4: generated uploads (not tracked)
+chain/uploads/*.json
