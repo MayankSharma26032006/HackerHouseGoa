@@ -1,0 +1,31 @@
+# ── Secrets ────────────────────────────────────────────────
+.env
+*.pem
+*.key
+
+# ── Python ─────────────────────────────────────────────────
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# ── Local data (consented images — never committed) ────────
+data/subjects/
+
+# ── OS / IDE ───────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# ── Build artifacts ────────────────────────────────────────
+dist/
+build/
+*.egg-info/
+
+# ── Phase 1: generated embeddings (not tracked) ────────────
+face_id/embeddings/*.json
+
+# ── Phase 2: generated search results (not tracked) ───────
+web_search/results/*.json

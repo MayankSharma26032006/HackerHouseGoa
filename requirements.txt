@@ -1,0 +1,11 @@
+# Phase 0
+python-dotenv>=1.0,<2.0
+
+# Phase 1 — Face detection + embedding extraction (local, no cloud)
+insightface>=0.7.3
+onnxruntime>=1.16.0
+Pillow>=10.0
+
+# Phase 2 — Web / social media search (reverse image)
+google-cloud-vision>=2.0
+requests>=2.28,<3.0
