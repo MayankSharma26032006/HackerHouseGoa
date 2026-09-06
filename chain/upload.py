@@ -21,7 +21,12 @@ logger = logging.getLogger(__name__)
 
 EXPLORER_BASE = "https://sepolia.etherscan.io/tx/"
 SEPOLIA_CHAIN_ID = 11155111
-GAS_LIMIT = 21000  # fixed for self-transfer
+
+# Fixed gas limit for the self-transaction. The record_hash is ~71 bytes
+# of calldata (~22136 intrinsic gas), but some Sepolia nodes enforce a
+# higher minimum. 50000 is safe, cheap (well under the 0.05 ETH
+# balance), and unused gas is refunded.
+GAS_LIMIT = 50000
 
 
 def load_fingerprint(subject):
@@ -57,7 +62,7 @@ def get_web3():
     if not rpc_url:
         raise RuntimeError(
             "BLOCKCHAIN_RPC_URL environment variable is not set. "
-            "Set it in your .env file (e.g. https://rpc.sepolia.org)."
+            "Set it in your .env file (e.g. https://ethereum-sepolia-rpc.publicnode.com)."
         )
 
     private_key = os.environ.get("WALLET_PRIVATE_KEY")
@@ -110,7 +115,9 @@ def build_and_send_tx(w3, private_key, address, record_hash):
     logger.info("Data field (UTF-8): %s", record_hash)
     logger.info("Data field (hex): %s", data_bytes.hex())
 
-    # Build transaction
+    # Build transaction with fixed gas limit.
+    logger.info("Gas limit: %d (record_hash: %d bytes)", GAS_LIMIT, len(data_bytes))
+
     tx = {
         "from": address,
         "to": address,  # self-send
@@ -165,6 +172,7 @@ def save_upload_result(subject, record_hash, tx_hash, receipt, address):
         "explorer_url": EXPLORER_BASE + tx_hash,
         "uploaded_at": datetime.now(timezone.utc).isoformat(),
         "from_address": address,
+        "data_hex": record_hash.encode("utf-8").hex(),
     }
 
     with open(out_path, "w", encoding="utf-8") as f:

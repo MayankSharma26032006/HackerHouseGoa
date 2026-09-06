@@ -28,7 +28,7 @@
 **Sepolia is the right call.** Reasons:
 - Most widely supported testnet — web3.py, Etherscan, all tooling
 - Free faucets: Alchemy (https://sepoliafaucet.com), Infura, Sepolia PoW faucet
-- Free RPC: `https://rpc.sepolia.org` (already in `.env`)
+- Free RPC: `https://ethereum-sepolia-rpc.publicnode.com` (already in `.env`)
 - Etherscan verification: `https://sepolia.etherscan.io/tx/<hash>`
 - Polygon Amoy is equally free but has less tooling/community support
 
@@ -78,7 +78,9 @@ Connect via `BLOCKCHAIN_RPC_URL` (from `.env`). Sign with `WALLET_PRIVATE_KEY`.
    - `value`: 0
    - `data`: record_hash encoded as UTF-8 bytes
    - `nonce`: `w3.eth.get_transaction_count(address)`
-   - `gas`: 21000 (fixed — self-transfer with data)
+   - `gas`: computed per EIP-2028 (`21000 + 16 * non-zero calldata bytes`)
+     — **not** a fixed 21000, which would be rejected as
+     "intrinsic gas too low" for any data-bearing transaction
    - `gasPrice`: `w3.eth.gas_price`
    - `chainId`: 11155111 (Sepolia)
 5. Sign with private key
@@ -151,7 +153,7 @@ Console prints:
 2026-09-06 16:00:00 [INFO] Loading fingerprint: chain/fingerprints/kritika.json
 2026-09-06 16:00:00 [INFO] Subject: kritika
 2026-09-06 16:00:00 [INFO] record_hash: sha256:7b062950f52423dfce26875038ffeed490e4941c6f09d981821cb1671c6da0f7
-2026-09-06 16:00:00 [INFO] Connecting to Sepolia via https://rpc.sepolia.org ...
+2026-09-06 16:00:00 [INFO] Connecting to Sepolia via https://ethereum-sepolia-rpc.publicnode.com ...
 2026-09-06 16:00:00 [INFO] Sender address: 0x...
 2026-09-06 16:00:00 [INFO] Balance: 0.05 ETH (sufficient)
 2026-09-06 16:00:00 [INFO] Building self-transaction with record_hash in data field ...
@@ -178,6 +180,7 @@ Saved to: chain/uploads/kritika.json
 
 | # | Criterion | How to verify |
 |---|-----------|---------------|
+| 0 | Transaction passes the intrinsic-gas check | `python -c "from chain.upload import intrinsic_gas; assert intrinsic_gas(b'sha256:' + b'0'*64) > 21000"` — gas computed from calldata length, never fixed |
 | 1 | Real transaction confirmed on Sepolia (status=1) | Receipt status == 1, blockNumber > 0 |
 | 2 | tx_hash viewable on Etherscan | Open sepolia.etherscan.io/tx/<hash> in browser |
 | 3 | Data field contains the exact record_hash | Decode Input Data on Etherscan -> UTF-8 -> compare |

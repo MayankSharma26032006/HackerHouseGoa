@@ -97,7 +97,7 @@ for secrets loading (§4).
 
 ```bash
 # ── Blockchain (TEST WALLET ONLY — never fund with real assets) ──
-BLOCKCHAIN_RPC_URL=https://rpc.sepolia.org
+BLOCKCHAIN_RPC_URL=https://ethereum-sepolia-rpc.publicnode.com
 WALLET_PRIVATE_KEY=0x_YOUR_TEST_WALLET_PRIVATE_KEY  # TEST WALLET ONLY — never fund with real assets
 CONTRACT_ADDRESS=0x_YOUR_DEPLOYED_CONTRACT_ADDR
 

@@ -354,10 +354,18 @@ def filter_social_media(dataset_items):
     return all_results
 
 
+# Browser-like headers to avoid blocks from sites like LinkedIn
+_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.5",
+}
+
+
 def fetch_url_accessibility(url):
     """Check if a URL is reachable. Returns status dict."""
     try:
-        resp = requests.get(url, timeout=10, allow_redirects=True)
+        resp = requests.get(url, timeout=10, allow_redirects=True, headers=_HEADERS)
         return {
             "url": url,
             "http_status": resp.status_code,
@@ -374,14 +382,43 @@ def fetch_url_accessibility(url):
 
 
 def fetch_content_hash(url):
-    """Fetch a URL and return its SHA-256 content hash. Returns None on failure."""
+    """Fetch a URL and return its SHA-256 content hash.
+
+    Tries the direct URL first, then Google Cache, then Archive.org.
+    Returns None if all attempts fail.
+    """
+    # Try 1: direct fetch
     try:
-        resp = requests.get(url, timeout=10, allow_redirects=True)
+        resp = requests.get(url, timeout=10, allow_redirects=True, headers=_HEADERS)
         if 200 <= resp.status_code < 400:
             h = hashlib.sha256(resp.content).hexdigest()
             return f"sha256:{h}"
+        logger.info("Direct fetch returned %d, trying fallbacks...", resp.status_code)
     except requests.RequestException as e:
-        logger.warning("Failed to fetch content for hash: %s", e)
+        logger.info("Direct fetch failed (%s), trying fallbacks...", type(e).__name__)
+
+    # Try 2: Google Cache
+    cache_url = f"https://webcache.googleusercontent.com/search?q=cache:{url}"
+    try:
+        resp = requests.get(cache_url, timeout=10, allow_redirects=True, headers=_HEADERS)
+        if 200 <= resp.status_code < 400 and len(resp.content) > 500:
+            h = hashlib.sha256(resp.content).hexdigest()
+            logger.info("Fetched via Google Cache")
+            return f"sha256:{h}"
+    except requests.RequestException:
+        pass
+
+    # Try 3: Archive.org Wayback Machine
+    wayback_url = f"https://web.archive.org/web/{url}"
+    try:
+        resp = requests.get(wayback_url, timeout=10, allow_redirects=True, headers=_HEADERS)
+        if 200 <= resp.status_code < 400 and len(resp.content) > 500:
+            h = hashlib.sha256(resp.content).hexdigest()
+            logger.info("Fetched via Archive.org")
+            return f"sha256:{h}"
+    except requests.RequestException:
+        pass
+
     return None
 
 

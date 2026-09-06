@@ -35,3 +35,6 @@ chain/fingerprints/*.json
 
 # Phase 4: generated uploads (not tracked)
 chain/uploads/*.json
+
+# Phase 5: generated verifications (not tracked)
+chain/verifications/*.json
