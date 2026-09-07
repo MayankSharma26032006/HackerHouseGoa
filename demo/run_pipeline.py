@@ -36,12 +36,15 @@ STAGES = [
 ]
 
 
-def build_commands(subject, images=None, skip_upload=False, skip_verify=False):
+def build_commands(subject, images=None, skip_upload=False, skip_verify=False, platform=None):
     """Return the list of (stage_label, argv) the pipeline would run."""
     commands = []
     commands.append((STAGES[0][0], ["-m", "face_id.run", "--subject", subject]
                      + (["--images"] + list(images) if images else [])))
-    commands.append((STAGES[1][0], ["-m", "web_search.run", "--subject", subject]))
+    web_search_cmd = ["-m", "web_search.run", "--subject", subject]
+    if platform:
+        web_search_cmd += ["--platform", platform]
+    commands.append((STAGES[1][0], web_search_cmd))
     commands.append((STAGES[2][0], ["-m", "chain.fingerprint", "--subject", subject]))
     if not skip_upload:
         commands.append((STAGES[3][0], ["-m", "chain.upload", "--subject", subject]))
@@ -85,9 +88,12 @@ def main():
                         help="Do not run the Phase 5 verification stage")
     parser.add_argument("--dry-run", action="store_true",
                         help="Print the commands that would run, without executing them")
+    parser.add_argument("--platform", default=None,
+                        help="Filter web search to a specific platform (e.g. Twitter/X, Instagram, LinkedIn)")
     args = parser.parse_args()
 
-    commands = build_commands(args.subject, args.images, args.skip_upload, args.skip_verify)
+    commands = build_commands(args.subject, args.images, args.skip_upload, args.skip_verify,
+                             platform=args.platform)
     total = len(commands)
 
     print("=" * 72)

@@ -152,6 +152,10 @@ Read this before trusting the pipeline — nothing here is hidden:
    It is the single paid step in the pipeline and may eventually run out
    of credits. A genuinely free reverse-image-search alternative would
    resolve this contradiction.
+   **Demo note:** Apify free trial credits cover the full demo run without
+   spending real money. For production use, a free alternative (e.g.
+   scraping Google Images directly or using a self-hosted reverse search)
+   would be needed.
 3. **Phase 2 relies on an unofficial, community-maintained scraper.**
    The Apify `borderline/google-lens` actor is not an official Google
    product: results vary by region/time, anti-scraping can break it, and

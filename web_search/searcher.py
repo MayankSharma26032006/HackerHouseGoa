@@ -302,8 +302,13 @@ def _print_raw_items(dataset_items):
     print("=" * 70 + "\n")
 
 
-def filter_social_media(dataset_items):
+def filter_social_media(dataset_items, platform_filter=None):
     """Filter Apify dataset items to social media URLs, ranked by match type.
+
+    Args:
+        dataset_items: Raw Apify response items.
+        platform_filter: Optional platform name to filter by (e.g. "Twitter/X", "Instagram").
+                         Case-insensitive. If None, all platforms are included.
 
     Returns a list of dicts sorted by relevance_score (lower = better).
     """
@@ -313,6 +318,7 @@ def filter_social_media(dataset_items):
 
     exact_count = 0
     web_count = 0
+    filtered_count = 0
 
     for item in dataset_items:
         search_type = item.get("searchType", "")
@@ -337,6 +343,11 @@ def filter_social_media(dataset_items):
         if platform == "Unknown":
             continue
 
+        # Filter by platform if specified
+        if platform_filter and platform.lower() != platform_filter.lower():
+            filtered_count += 1
+            continue
+
         all_results.append({
             "url": resolved,
             "raw_url": url if is_redirect else None,
@@ -347,10 +358,16 @@ def filter_social_media(dataset_items):
         })
 
     all_results.sort(key=lambda r: r["relevance_score"])
-    logger.info(
-        "Apify: %d exact-match, %d web-result -> %d social-media results",
-        exact_count, web_count, len(all_results),
-    )
+    if platform_filter:
+        logger.info(
+            "Apify: %d exact-match, %d web-result -> %d results on %s (%d filtered out)",
+            exact_count, web_count, len(all_results), platform_filter, filtered_count,
+        )
+    else:
+        logger.info(
+            "Apify: %d exact-match, %d web-result -> %d social-media results",
+            exact_count, web_count, len(all_results),
+        )
     return all_results
 
 
@@ -479,11 +496,16 @@ def fetch_content_hash(url):
     return None
 
 
-def run_search(subject, debug_raw=False):
+def run_search(subject, debug_raw=False, platform=None):
     """End-to-end search for a consented subject.
 
+    Args:
+        subject: Subject name (must have consent.txt).
+        debug_raw: If True, print all raw API items before filtering.
+        platform: Optional platform filter (e.g. "Twitter/X", "Instagram", "LinkedIn").
+                  If None, all platforms are included.
+
     Returns the output dict and saves to web_search/results/<subject>.json.
-    If debug_raw=True, prints all raw API items before filtering.
     """
     subject_dir = verify_consent(subject)
     image_path = select_image(subject_dir)
@@ -499,8 +521,8 @@ def run_search(subject, debug_raw=False):
     if debug_raw:
         _print_raw_items(dataset_items)
 
-    # Filter to social media results
-    social = filter_social_media(dataset_items)
+    # Filter to social media results (optionally by platform)
+    social = filter_social_media(dataset_items, platform_filter=platform)
     total = len(dataset_items)
 
     # Build output
@@ -563,6 +585,11 @@ def main():
         "--debug-raw", action="store_true",
         help="Print all raw API items before social-media filtering"
     )
+    parser.add_argument(
+        "--platform",
+        default=None,
+        help="Filter results to a specific platform (e.g. Twitter/X, Instagram, LinkedIn, Reddit)"
+    )
     args = parser.parse_args()
 
     logging.basicConfig(
@@ -572,7 +599,7 @@ def main():
     )
 
     try:
-        result = run_search(args.subject, debug_raw=args.debug_raw)
+        result = run_search(args.subject, debug_raw=args.debug_raw, platform=args.platform)
         matches = result["social_media_matches"]
         print(f"\n=== Search Results for '{args.subject}' ===")
         print(f"Image: {result['image_file']}")
