@@ -1,5 +1,7 @@
 # face-verify-chain
 
+![Tests](https://github.com/MayankSharma26032006/HackerHouseGoa/actions/workflows/test.yml/badge.svg)
+
 Face-consent verification pipeline — scan a face, find a matching post on the web, then upload and re-verify that data on-chain.
 
 ---
