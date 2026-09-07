@@ -9,5 +9,8 @@ Pillow>=10.0
 # Phase 2 — Web / social media search (reverse image via Apify Google Lens)
 requests>=2.28,<3.0
 
+# Phase 2 fallback — headless browser for sites that block requests (LinkedIn)
+playwright>=1.40.0
+
 # Phase 4 — Blockchain upload (Sepolia testnet)
 web3>=6.0.0

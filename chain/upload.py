@@ -22,11 +22,35 @@ logger = logging.getLogger(__name__)
 EXPLORER_BASE = "https://sepolia.etherscan.io/tx/"
 SEPOLIA_CHAIN_ID = 11155111
 
-# Fixed gas limit for the self-transaction. The record_hash is ~71 bytes
-# of calldata (~22136 intrinsic gas), but some Sepolia nodes enforce a
-# higher minimum. 50000 is safe, cheap (well under the 0.05 ETH
-# balance), and unused gas is refunded.
-GAS_LIMIT = 50000
+
+# ---------------------------------------------------------------------------
+# EIP-2028 intrinsic gas calculation
+# ---------------------------------------------------------------------------
+def intrinsic_gas(data_hex: str) -> int:
+    """Compute the intrinsic gas for calldata per EIP-2028.
+
+    Base cost: 21000 gas.
+    Per non-zero byte: +16 gas.
+    Per zero byte:     + 4 gas.
+
+    The ``data_hex`` parameter is the *decoded* UTF-8 string that will be
+    encoded as calldata (i.e. the record_hash text).
+    """
+    raw = data_hex.encode("utf-8")
+    gas = 21000
+    for byte in raw:
+        gas += 16 if byte != 0 else 4
+    return gas
+
+
+def recommended_gas_limit(data_hex: str) -> int:
+    """Recommended gas limit: intrinsic gas + 50% safety margin.
+
+    Nodes may enforce overhead beyond EIP-2028 intrinsic gas.
+    The extra gas is refunded if unused.
+    """
+    base = intrinsic_gas(data_hex)
+    return base + base // 2  # 1.5x
 
 
 def load_fingerprint(subject):
@@ -115,8 +139,10 @@ def build_and_send_tx(w3, private_key, address, record_hash):
     logger.info("Data field (UTF-8): %s", record_hash)
     logger.info("Data field (hex): %s", data_bytes.hex())
 
-    # Build transaction with fixed gas limit.
-    logger.info("Gas limit: %d (record_hash: %d bytes)", GAS_LIMIT, len(data_bytes))
+    # Compute gas limit from calldata using EIP-2028 + safety margin.
+    gas_limit = recommended_gas_limit(record_hash)
+    logger.info("Gas limit: %d (intrinsic: %d, record_hash: %d bytes)",
+                gas_limit, intrinsic_gas(record_hash), len(data_bytes))
 
     tx = {
         "from": address,
@@ -124,7 +150,7 @@ def build_and_send_tx(w3, private_key, address, record_hash):
         "value": 0,
         "data": data_bytes,
         "nonce": w3.eth.get_transaction_count(address),
-        "gas": GAS_LIMIT,
+        "gas": gas_limit,
         "gasPrice": w3.eth.gas_price,
         "chainId": SEPOLIA_CHAIN_ID,
     }

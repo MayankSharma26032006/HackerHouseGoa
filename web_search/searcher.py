@@ -381,10 +381,57 @@ def fetch_url_accessibility(url):
         }
 
 
+def _fetch_with_playwright(url):
+    """Fetch a URL using Playwright headless browser.
+
+    Works for sites that block plain requests (LinkedIn, etc.)
+    by rendering the page like a real browser.
+
+    Extracts only the visible text content (stripping HTML, scripts, ads,
+    and other dynamic elements) so the hash is stable across fetches.
+    Returns (stable_text_bytes_or_None, error_or_None).
+    """
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        return None, "playwright not installed (pip install playwright && playwright install chromium)"
+
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            context = browser.new_context(
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                viewport={"width": 1280, "height": 720},
+            )
+            page = context.new_page()
+            page.goto(url, wait_until="domcontentloaded", timeout=30000)
+            # Wait for dynamic content to settle
+            page.wait_for_timeout(3000)
+            # Remove dynamic elements that change between fetches
+            page.evaluate("""
+                () => {
+                    // Remove scripts, styles, ads, and hidden elements
+                    document.querySelectorAll('script, style, noscript, iframe, [data-ad], [data-slot]').forEach(el => el.remove());
+                    // Remove elements with dynamic classes (LinkedIn ads, timestamps)
+                    document.querySelectorAll('.ad-banner, .feed-shared-update-v2__description, .artdeco-card').forEach(el => el.remove());
+                }
+            """)
+            # Get stable text content (stripped of HTML tags)
+            text = page.evaluate("() => document.body.innerText")
+            browser.close()
+            if text and len(text.strip()) > 100:
+                # Normalize whitespace for stable hashing
+                stable = " ".join(text.split())
+                return stable.encode("utf-8"), None
+            return None, "page text too short (likely a login wall)"
+    except Exception as e:
+        return None, f"playwright error: {type(e).__name__}: {str(e)[:100]}"
+
+
 def fetch_content_hash(url):
     """Fetch a URL and return its SHA-256 content hash.
 
-    Tries the direct URL first, then Google Cache, then Archive.org.
+    Tries in order: direct fetch, Google Cache, Archive.org, Playwright headless.
     Returns None if all attempts fail.
     """
     # Try 1: direct fetch
@@ -418,6 +465,16 @@ def fetch_content_hash(url):
             return f"sha256:{h}"
     except requests.RequestException:
         pass
+
+    # Try 4: Playwright headless browser (for sites that block plain requests)
+    logger.info("Trying Playwright headless browser...")
+    content, err = _fetch_with_playwright(url)
+    if content:
+        h = hashlib.sha256(content).hexdigest()
+        logger.info("Fetched via Playwright headless browser")
+        return f"sha256:{h}"
+    else:
+        logger.info("Playwright failed: %s", err)
 
     return None
 
